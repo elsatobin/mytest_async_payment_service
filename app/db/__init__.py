@@ -1,7 +1,4 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from app.db.deps import get_db
+from app.db.session import SessionLocal
 
-DATABASE_URL = "postgresql+psycopg2://user:password@localhost:5432/mydb"
-
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+__all__ = ["SessionLocal", "get_db"]

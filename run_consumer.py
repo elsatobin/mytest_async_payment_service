@@ -1,11 +1,5 @@
 import asyncio
-from app.broker import broker
-from app.consumer import router
-
-broker.include_router(router)
-
-async def main():
-    await broker.start()
+from app.consumer import app
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(app.run())
