@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, JSON
+from sqlalchemy import Column, String, Boolean, JSON, Integer
 import uuid
 
 from app.db.base import Base
@@ -12,3 +12,5 @@ class Outbox(Base):
     payload = Column(JSON)
 
     processed = Column(Boolean, default=False)
+
+    retry_count = Column(Integer, default=0)  # 🔥 추가

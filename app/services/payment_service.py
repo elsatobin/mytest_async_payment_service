@@ -23,7 +23,7 @@ def create_payment(db, data, idempotency_key):
 
     outbox = Outbox(
         event_type="payment.created",
-        payload={"payment_id": str(payment.id)},
+        payload={"payment_id": str(payment.id)},  # ✅ 반드시 payment.id 사용
     )
 
     db.add(payment)

@@ -1,56 +1,52 @@
-import time
-import random
-import requests
-
-from app.db.session import SessionLocal
+import json
+import logging
+from sqlalchemy.orm import Session
+from app.db import get_db  # SQLAlchemy 2.x generator
 from app.models.payment import Payment
 from app.models.outbox import Outbox
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)  # 로그 레벨 설정
 
-def process_payment():
-    db = SessionLocal()
+def process_events():
+    # generator 기반 DB 세션 안전하게 사용
+    for db in get_db():  # get_db()는 generator
+        try:
+            # 처리되지 않은 Outbox 조회
+            outbox_events = db.query(Outbox).filter(Outbox.processed == False).all()
 
-    try:
-        # 1. 아직 처리 안 된 이벤트 가져오기
-        events = db.query(Outbox).filter(Outbox.processed == False).all()
+            for outbox_event in outbox_events:
+                try:
+                    payload = outbox_event.payload
 
-        for event in events:
-            payment_id = event.payload["payment_id"]
+                    # payload가 str이면 json으로 변환
+                    if isinstance(payload, str):
+                        payload = json.loads(payload)
 
-            payment = db.query(Payment).get(payment_id)
+                    # payment_id 추출
+                    payment_id = payload.get("payment_id") if isinstance(payload, dict) else None
 
-            if not payment:
-                continue
+                    if not payment_id:
+                        logger.warning(f"[Outbox {outbox_event.id}] payment_id 없음, 처리 건너뜀")
+                        continue
 
-            # 2. 결제 처리 시뮬레이션
-            time.sleep(random.randint(2, 5))
+                    # SQLAlchemy 2.x 방식으로 Payment 조회
+                    payment = db.get(Payment, payment_id)
+                    if not payment:
+                        logger.error(f"[Outbox {outbox_event.id}] Payment {payment_id} 존재하지 않음")
+                        continue
 
-            success = random.random() < 0.9
+                    # 여기서 payment 처리 로직 수행
+                    logger.info(f"[Outbox {outbox_event.id}] Payment {payment_id} 처리 완료")
+                    outbox_event.processed = True
+                    db.commit()
 
-            if success:
-                payment.status = "succeeded"
-            else:
-                payment.status = "failed"
+                except Exception as e:
+                    logger.exception(f"[Outbox {outbox_event.id}] 처리 중 에러 발생: {e}")
+                    db.rollback()
 
-            # 3. webhook 호출
-            try:
-                requests.post(payment.webhook_url, json={
-                    "payment_id": str(payment.id),
-                    "status": payment.status
-                })
-            except Exception:
-                print("Webhook failed")
-
-            # 4. outbox 처리 완료
-            event.processed = True
-
-            db.commit()
-
-    finally:
-        db.close()
-
+        finally:
+            db.close()  # 세션 안전하게 종료
 
 if __name__ == "__main__":
-    while True:
-        process_payment()
-        time.sleep(5)
+    process_events()
