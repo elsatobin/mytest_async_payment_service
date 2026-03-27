@@ -13,7 +13,7 @@ class Payment(Base):
     amount = Column(Numeric, nullable=False)
     currency = Column(String, nullable=False)
     description = Column(String)
-    metadata = Column(JSON)
+    meta = Column(JSON)
 
     status = Column(String, default="pending")
 
